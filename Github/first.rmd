@@ -1,0 +1,54 @@
+---
+title: "First RMarkdown file"
+output:
+  word_document:
+
+author: Georgie Sazykin
+---
+
+```{r, include=FALSE}
+options(tinytex.verbose = TRUE)
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(readr)
+library(tibble)
+library(tinytex)
+library(dplyr)
+
+```
+
+
+
+Второй chunk:
+```{r}
+V1 <- c(2,3,4,5,6,6)
+V2<- c(22,32,42,52,62,62)
+X <- data.frame('V1'= c(1,2,3,4), 'V2' =c(3,4,5,6))
+X
+
+df1 <- read_delim("data_tsv.tsv")
+```
+Третий chunk
+
+```{r}
+oshibka <- function (x){
+  return(sd(x)/sqrt(length(x)))
+}
+
+# numeric_data <- read_rds("numeric_data.rds")
+
+T <- tibble(var_first = 1:10, var_second = var_first^2)
+# T %>% view()
+
+df1 %>%
+        select(`Группа крови`, `Рост`)
+
+df1 %>% select(`Пол`, `Группа`, `Базофилы_E1`)
+
+
+
+df1%>% select(`Группа`, (function(x) is.factor(x)) | where(function(x) is.numeric(x)))
+
+df1 %>% select(`Группа`, function(x) !is.factor(x))
+
+```
