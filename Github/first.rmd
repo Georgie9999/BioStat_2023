@@ -7,6 +7,7 @@ author: Georgie Sazykin
 ---
 
 ```{r, include=FALSE}
+
 options(tinytex.verbose = TRUE)
 knitr::opts_chunk$set(echo = TRUE)
 library(ggplot2)
@@ -56,6 +57,7 @@ df1 %>% select(`Группа`, function(x) !is.factor(x))
 Четвертый chunk:
 
 ```{r}
+
 data <- df1
 data
 data %>% select(`Пол`, `Группа`, `Базофилы_E1`)
@@ -91,7 +93,7 @@ filter(`Пол`=="Мужской")
 
 
 data %>%
-filter(between(`Возраст`, 30, 35) & `Пол`=="Мужской")
+        filter(between(`Возраст`, 30, 35) & `Пол`=="Мужской")
 
 data %>%
 filter(if_all(.col = contains("Базофилы"), .fns = function(x) x>1.5))
@@ -104,5 +106,23 @@ data %>% mutate(`Мужчины с B(III)` = ifelse(`Пол`=="Мужской" &
 
 
 data %>% mutate(across(!contains("E1"), function(x) str_c(x, " + некая строка")))
+
+
+
+data %>% arrange(`Возраст`)
+data %>% arrange(desc(`Рост`))
+```
+Шестой chunck
+
+```{r}
+data %>% distinct(`Группа`, .keep_all = TRUE)
+
+
+data %>% select(`Группа`, where(is.numeric)) %>%
+                  group_by(`Группа`) %>%
+                  summarise(across(where(is.numeric), function(x) mean(x, na.rm = TRUE)))
+
+
+
 ```
 
