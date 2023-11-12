@@ -1,0 +1,237 @@
+---
+title: "Sazykin_data_visualization_2"
+author: "Sazykin Georgie"
+date: "2023-11-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r message = FALSE, warning=FALSE}
+library(dplyr)
+library(ggplot2)
+library(ggpubr)
+library(rstatix)
+library(plotly)
+library(corrplot)
+library(factoextra)
+library(pheatmap)
+library(igraph)
+library(FactoMineR)
+library(ggbiplot)
+library(tidymodels)
+library(embed)
+```
+
+
+## 1. Загрузка данных life_expectancy_data
+
+```{r warning=FALSE, message=FALSE}
+
+life_expectancy_data <- readRDS("life_expectancy_data.RDS")
+
+# head(life_expectancy_data, 10)
+
+```
+
+## Некоторые преобразования над данными
+
+```{r}
+life_expectancy_data$Country <- as.factor(life_expectancy_data$Country)
+life_expectancy_data$Gender<- as.factor(life_expectancy_data$Gender)
+# str(life_expectancy_data)
+```
+
+## 2. Plotly нумерических колонок+ раскраска по странам
+
+```{r message = FALSE}
+
+plot_ly(data = life_expectancy_data,
+        x = ~ `Life expectancy`,
+        y = ~ Unemployment, 
+        color = ~ continent,
+         marker = list(size = 10)) %>%
+    layout(
+      title = 'Отношение безработицы и ожидаемой продолжительности жизни')
+
+```
+
+
+## 3. Тест на распределение колонки `Life expectancy` по странам
+
+```{r}
+stat_subset <- subset(life_expectancy_data, life_expectancy_data$continent %in% c("Africa", "Americas"))
+#stat_subset
+
+# распределения не являются нормальными, используем тест Манна- Уитни
+stat.test <- stat_subset %>% 
+  wilcox_test(`Life expectancy` ~ continent)
+stat.test
+
+ggboxplot(
+  stat_subset, 
+  x = "continent", y = "Life expectancy", 
+  add = "jitter"
+  )+
+  labs(subtitle = get_test_label(stat.test, detailed = TRUE))
+
+```
+
+
+## 4. Корреляционный анализ нумерических данных + построение корреляционных матриц
+
+```{r}
+numeric_data <- life_expectancy_data[, c(-1, -2, -3, -23)]
+# str(numeric_data)
+
+# 1-й способ
+
+corrplot(cor(numeric_data), tl.cex = 0.5, method = 'shade', order = 'AOE')
+
+
+```
+
+
+```{r}
+# 2-й способ
+corrplot(cor(numeric_data), tl.cex = 0.5, method = 'square', order = 'FPC', type = 'lower', diag = FALSE)
+```
+
+## 5. Иерархическая кластеризация на numeric_data
+
+```{r}
+numeric_data_scaled <- scale(as.data.frame(numeric_data))
+
+numeric_data_dist <- dist(numeric_data_scaled, 
+                        method = "euclidean")
+
+
+numeric_data_clear_hc <- hclust(d = numeric_data_dist, 
+                        method = "ward.D2")
+```
+
+
+```{r}
+# построение дендограммы
+
+fviz_dend(x = numeric_data_clear_hc, cex = 0.8, k = 3, rect = TRUE,  
+          lwd = 0.7,
+          k_colors = "jco",
+          rect_border = "jco", 
+          rect_fill = TRUE, 
+          horiz = TRUE,
+          type = "phylogenic")
+
+```
+
+
+## 6. Иерархическая кластеризация на numeric_data+ heat_map
+
+
+
+```{r}
+
+pheatmap(numeric_data_scaled, 
+         show_rownames = FALSE, 
+         clustering_distance_rows = numeric_data_dist,
+         clustering_method = "ward.D2", 
+         cutree_rows = 6,
+         cutree_cols = length(colnames(numeric_data_scaled)),
+         angle_col = 45, 
+         main = "Dendrograms for clustering rows and columns with heatmap")
+
+
+# Анализ: в данном случае можно выделить 6 кластеров по наблюдений(например) в ручную, ято и показано на дендограме; тажке были выделены кластеры по колонкам( дендограмма сверху показывает близость колонок друг к другу); в данном случае явно выделяются 2 кластера (хотя выделить можно и больше); в первом кластере 7 столбцов, во втором - все остальные (см. построенный heatmap)
+```
+
+
+## 7. PCA на numeric_data
+
+
+```{r}
+numeric_data.pca <- prcomp(numeric_data, 
+                        scale = T)
+
+summary(numeric_data.pca)
+# можно сказать, что 80% всех наблюдений (их варианция) объясняется первыми 6 главными компонентами
+
+```
+
+## 8. Biplot для PCA
+
+
+```{r}
+
+bi_plot <- ggbiplot(numeric_data.pca, 
+         scale=0, alpha = 0.5) + 
+  geom_point(aes(color = life_expectancy_data$continent, fill = life_expectancy_data$Country))+
+  theme_minimal()
+
+ggplotly(bi_plot)
+
+```
+
+## 9. Интерпретация PCA
+
+```{r}
+fviz_pca_var(numeric_data.pca, 
+select.var = list(contrib = 3),
+scale=0, alpha = 1, col.var = "contrib")
+
+# на примере 2-х компонент: самый большой вклад тут имеют колонки Measles Immunization , DPT Immunization, HepB3 Immunization; видно, что DPT Immunization, HepB3 Immunization
+# По длине векторов вышеперечисленных переменных можно сделать вывод, что переменные довольно хорошо объясняют данные
+
+ggbiplot(numeric_data.pca, 
+         scale=0, alpha = 0.5,
+         group = life_expectancy_data$continent)
+
+# из biplot можно сделать следующие выводы: видная взяимосвязь Clean fuels and cooking technologies, 
+# Basic sanitation services (чем лучше, тем больше) и континетом (наилучшая ситуация в Европе и Америке,
+# а в Африке не все так хорошо); также при росте "плохих" показателей (например, Tuberculosis Incidence, Non-communicable Mortality) можно заметить, что они "стремятся" к Африке и Океании
+
+```
+
+## 11. Неустойчивость PCA
+
+```{r warning=FALSE}
+# удалим 5 колонок и посмотрим результат PCA
+
+
+## 1
+
+numeric_data.pca <- prcomp(numeric_data[, c(-14 , -5 ,-15 , -7, -10)], 
+                        scale = T)
+summary(numeric_data.pca)
+ggbiplot(numeric_data.pca, 
+         scale=0, alpha = 0.5)
+
+## 2
+
+numeric_data.pca <- prcomp(numeric_data[, c(-6 , -8,  -5 ,-16 , -4)], 
+                        scale = T)
+summary(numeric_data.pca)
+ggbiplot(numeric_data.pca, 
+         scale=0, alpha = 0.5)
+
+## 3
+
+numeric_data.pca <- prcomp(numeric_data[, c(-3,  -4 ,-15 ,-17 ,-13)], 
+                        scale = T)
+summary(numeric_data.pca)
+ggbiplot(numeric_data.pca, 
+         scale=0, alpha = 0.5)
+
+# можно заметить небольшие изменения в Cumulative Proportion; на графиках так же присутсвуют различия 
+
+
+
+```
+
+```{r}
+
+```
+
+
